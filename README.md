@@ -28,6 +28,18 @@ Let's start...
 $ mkdir channel-artifacts
 $ ../bin/cryptogen generate --config=./crypto-config.yaml
 $ export FABRIC_CFG_PATH=$PWD
+$ ../bin/configtxgen -profile ArtgalleriesOrdererGenesis -outputBlock ./channel-artifacts/genesis.block
+$ export CHANNEL_NAME=artgallerieschannel
+$ ../bin/configtxgen -profile ArtgalleriesChannel -outputCreateChannelTx ./channel-artifacts/channel.tx -channelID $CHANNEL_NAME
+$ ../bin/configtxgen -profile ArtgalleriesChannel -outputAnchorPeersUpdate ./channel-artifacts/LouvreMSPanchors.tx -channelID $CHANNEL_NAME -asOrg LouvreMSP
+$ ../bin/configtxgen -profile ArtgalleriesChannel -outputAnchorPeersUpdate ./channel-artifacts/GuggenheimMSPanchors.tx -channelID $CHANNEL_NAME -asOrg GuggenheimMSP
+```
+
+Let's run the containers
+
+```sh
+$ export IMAGE_TAG=latest
+$ docker-compose -f docker-compose-cli.yaml -f docker-compose-couch.yaml up -d
 ```
 
 
