@@ -39,7 +39,22 @@ Let's run the containers
 
 ```sh
 $ export IMAGE_TAG=latest
+$ docker-compose -f docker-compose-cli.yaml down --volumes --remove-orphans
 $ docker-compose -f docker-compose-cli.yaml -f docker-compose-couch.yaml up -d
+```
+
+Now we make the connections with the cli container
+
+```sh
+$ docker exec -it cli bash
+$ export CHANNEL_NAME=artgallerieschannel
+$ peer channel create -o orderer.artgalleries.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/channel.tx --tls --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/artgalleries.com/orderers/orderer.artgalleries.com/msp/tlscacerts/tlsca.artgalleries.com-cert.pem
+$ peer channel join -b artgalleries.block
+$CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/guggenheim.artgalleries.com/users/Admin@guggenheim.artgalleries.com/msp CORE_PEER_ADDRESS=peer0.guggenheim.artgalleries.com:7051 CORE_PEER_LOCALMSPID="GuggenheimMSP" CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/guggenheim.artgalleries.com/peers/peer0.guggenheim.artgalleries.com/tls/ca.crt peer channel join -b artgallerieschannel.block
+$ peer channel update -o orderer.artgalleries.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/LouvreMSPanchors.tx --tls --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/artgalleries.com/orderers/orderer.artgalleries.com/msp/tlscacerts/tlsca.artgalleries.com-cert.pem
+$ CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/guggenheim.artgalleries.com/users/Admin@guggenheim.artgalleries.com/msp CORE_PEER_ADDRESS=peer0.guggenheim.artgalleries.com:7051 CORE_PEER_LOCALMSPID="GuggenheimMSP" CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/guggenheim.artgalleries.com/peers/peer0.guggenheim.artgalleries.com/tls/ca.crt peer channel update -o orderer.artgalleries.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/GuggenheimMSPanchors.tx --tls --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/artgalleries.com/orderers/orderer.artgalleries.com/msp/tlscacerts/tlsca.artgalleries.com-cert.pem
+
+
 ```
 
 
