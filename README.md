@@ -1,6 +1,4 @@
-#Art Galleries Blockchain
-
-[![N|Solid](https://cldup.com/dTxpPi9lDf.thumb.png)](https://nodesource.com/products/nsolid)
+# Art Galleries Blockchain
 
 Art-galleries-blockchain is workshop for testing the power of Blockchain, using Hyperledger Fabric, Docker and Go.
 
