@@ -9,7 +9,7 @@
 // peer chaincode invoke -C myc1 -n pictures -c '{"Args":["initPicture","picture2","red","50","tom"]}'
 // peer chaincode invoke -C myc1 -n pictures -c '{"Args":["initPicture","picture3","blue","70","tom"]}'
 // peer chaincode invoke -C myc1 -n pictures -c '{"Args":["transferPicture","picture2","jerry"]}'
-// peer chaincode invoke -C myc1 -n pictures -c '{"Args":["transferPicturesBasedOnType","blue","jerry"]}'
+// peer chaincode invoke -C myc1 -n pictures -c '{"Args":["transferPicturesBasedOnGeneration","blue","jerry"]}'
 // peer chaincode invoke -C myc1 -n pictures -c '{"Args":["delete","picture1"]}'
 
 // ==== Query pictures ====
@@ -98,7 +98,7 @@ type SimpleChaincode struct {
 type picture struct {
 	ObjectType string `json:"docType"` //docType is used to distinguish the various types of objects in state database
 	Name       string `json:"name"`    //the fieldtags are needed to keep case from bouncing around
-	Type      string `json:"type"`
+	Generation      string `json:"generation"`
 	Size       int    `json:"size"`
 	Owner      string `json:"owner"`
 }
@@ -130,8 +130,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return t.initPicture(stub, args)
 	} else if function == "transferPicture" { //change owner of a specific picture
 		return t.transferPicture(stub, args)
-	} else if function == "transferPicturesBasedOnType" { //transfer all pictures of a certain type
-		return t.transferPicturesBasedOnType(stub, args)
+	} else if function == "transferPicturesBasedOnGeneration" { //transfer all pictures of a certain generation
+		return t.transferPicturesBasedOnGeneration(stub, args)
 	} else if function == "delete" { //delete a picture
 		return t.delete(stub, args)
 	} else if function == "readPicture" { //read a picture
@@ -181,7 +181,7 @@ func (t *SimpleChaincode) initPicture(stub shim.ChaincodeStubInterface, args []s
 		return shim.Error("4th argument must be a non-empty string")
 	}
 	pictureName := args[0]
-	type := strings.ToLower(args[1])
+	generation := strings.ToLower(args[1])
 	owner := strings.ToLower(args[3])
 	size, err := strconv.Atoi(args[2])
 	if err != nil {
@@ -199,13 +199,13 @@ func (t *SimpleChaincode) initPicture(stub shim.ChaincodeStubInterface, args []s
 
 	// ==== Create picture object and marshal to JSON ====
 	objectType := "picture"
-	picture := &picture{objectType, pictureName, type, size, owner}
+	picture := &picture{objectType, pictureName, generation, size, owner}
 	pictureJSONasBytes, err := json.Marshal(picture)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 	//Alternatively, build the picture json string manually if you don't want to use struct marshalling
-	//pictureJSONasString := `{"docType":"Picture",  "name": "` + pictureName + `", "type": "` + type + `", "size": ` + strconv.Itoa(size) + `, "owner": "` + owner + `"}`
+	//pictureJSONasString := `{"docType":"Picture",  "name": "` + pictureName + `", "generation": "` + generation + `", "size": ` + strconv.Itoa(size) + `, "owner": "` + owner + `"}`
 	//pictureJSONasBytes := []byte(str)
 
 	// === Save picture to state ===
@@ -214,20 +214,20 @@ func (t *SimpleChaincode) initPicture(stub shim.ChaincodeStubInterface, args []s
 		return shim.Error(err.Error())
 	}
 
-	//  ==== Index the picture to enable type-based range queries, e.g. return all blue pictures ====
+	//  ==== Index the picture to enable generation-based range queries, e.g. return all blue pictures ====
 	//  An 'index' is a normal key/value entry in state.
 	//  The key is a composite key, with the elements that you want to range query on listed first.
-	//  In our case, the composite key is based on indexName~type~name.
-	//  This will enable very efficient state range queries based on composite keys matching indexName~type~*
-	indexName := "type~name"
-	typeNameIndexKey, err := stub.CreateCompositeKey(indexName, []string{picture.Type, picture.Name})
+	//  In our case, the composite key is based on indexName~generation~name.
+	//  This will enable very efficient state range queries based on composite keys matching indexName~generation~*
+	indexName := "generation~name"
+	generationNameIndexKey, err := stub.CreateCompositeKey(indexName, []string{picture.Generation, picture.Name})
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 	//  Save index entry to state. Only the key name is needed, no need to store a duplicate copy of the picture.
 	//  Note - passing a 'nil' value will effectively delete the key from state, therefore we pass null character as value
 	value := []byte{0x00}
-	stub.PutState(typeNameIndexKey, value)
+	stub.PutState(generationNameIndexKey, value)
 
 	// ==== Picture saved and indexed. Return success ====
 	fmt.Println("- end init picture")
@@ -269,7 +269,7 @@ func (t *SimpleChaincode) delete(stub shim.ChaincodeStubInterface, args []string
 	}
 	pictureName := args[0]
 
-	// to maintain the type~name index, we need to read the picture first and get its type
+	// to maintain the generation~name index, we need to read the picture first and get its generation
 	valAsbytes, err := stub.GetState(pictureName) //get the picture from chaincode state
 	if err != nil {
 		jsonResp = "{\"Error\":\"Failed to get state for " + pictureName + "\"}"
@@ -291,14 +291,14 @@ func (t *SimpleChaincode) delete(stub shim.ChaincodeStubInterface, args []string
 	}
 
 	// maintain the index
-	indexName := "type~name"
-	typeNameIndexKey, err := stub.CreateCompositeKey(indexName, []string{pictureJSON.Type, pictureJSON.Name})
+	indexName := "generation~name"
+	generationNameIndexKey, err := stub.CreateCompositeKey(indexName, []string{pictureJSON.Generation, pictureJSON.Name})
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 
 	//  Delete index entry to state.
-	err = stub.DelState(typeNameIndexKey)
+	err = stub.DelState(generationNameIndexKey)
 	if err != nil {
 		return shim.Error("Failed to delete state:" + err.Error())
 	}
@@ -434,50 +434,50 @@ func (t *SimpleChaincode) getPicturesByRange(stub shim.ChaincodeStubInterface, a
 }
 
 // ==== Example: GetStateByPartialCompositeKey/RangeQuery =========================================
-// transferPicturesBasedOnType will transfer pictures of a given type to a certain new owner.
-// Uses a GetStateByPartialCompositeKey (range query) against type~name 'index'.
+// transferPicturesBasedOnGeneration will transfer pictures of a given generation to a certain new owner.
+// Uses a GetStateByPartialCompositeKey (range query) against generation~name 'index'.
 // Committing peers will re-execute range queries to guarantee that result sets are stable
 // between endorsement time and commit time. The transaction is invalidated by the
 // committing peers if the result set has changed between endorsement time and commit time.
 // Therefore, range queries are a safe option for performing update transactions based on query results.
 // ===========================================================================================
-func (t *SimpleChaincode) transferPicturesBasedOnType(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (t *SimpleChaincode) transferPicturesBasedOnGeneration(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 
 	//   0       1
-	// "type", "bob"
+	// "generation", "bob"
 	if len(args) < 2 {
 		return shim.Error("Incorrect number of arguments. Expecting 2")
 	}
 
-	type := args[0]
+	generation := args[0]
 	newOwner := strings.ToLower(args[1])
-	fmt.Println("- start transferPicturesBasedOnType ", type, newOwner)
+	fmt.Println("- start transferPicturesBasedOnGeneration ", generation, newOwner)
 
-	// Query the type~name index by type
-	// This will execute a key range query on all keys starting with 'type'
-	typeedPictureResultsIterator, err := stub.GetStateByPartialCompositeKey("type~name", []string{type})
+	// Query the generation~name index by generation
+	// This will execute a key range query on all keys starting with 'generation'
+	generationedPictureResultsIterator, err := stub.GetStateByPartialCompositeKey("generation~name", []string{generation})
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-	defer typeedPictureResultsIterator.Close()
+	defer generationedPictureResultsIterator.Close()
 
 	// Iterate through result set and for each picture found, transfer to newOwner
 	var i int
-	for i = 0; typeedPictureResultsIterator.HasNext(); i++ {
+	for i = 0; generationedPictureResultsIterator.HasNext(); i++ {
 		// Note that we don't get the value (2nd return variable), we'll just get the picture name from the composite key
-		responseRange, err := typeedPictureResultsIterator.Next()
+		responseRange, err := generationedPictureResultsIterator.Next()
 		if err != nil {
 			return shim.Error(err.Error())
 		}
 
-		// get the type and name from type~name composite key
+		// get the generation and name from generation~name composite key
 		objectType, compositeKeyParts, err := stub.SplitCompositeKey(responseRange.Key)
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-		returnedType := compositeKeyParts[0]
+		returnedGeneration := compositeKeyParts[0]
 		returnedPictureName := compositeKeyParts[1]
-		fmt.Printf("- found a picture from index:%s type:%s name:%s\n", objectType, returnedType, returnedPictureName)
+		fmt.Printf("- found a picture from index:%s generation:%s name:%s\n", objectType, returnedGeneration, returnedPictureName)
 
 		// Now call the transfer function for the found picture.
 		// Re-use the same function that is used to transfer individual pictures
@@ -488,8 +488,8 @@ func (t *SimpleChaincode) transferPicturesBasedOnType(stub shim.ChaincodeStubInt
 		}
 	}
 
-	responsePayload := fmt.Sprintf("Transferred %d %s pictures to %s", i, type, newOwner)
-	fmt.Println("- end transferPicturesBasedOnType: " + responsePayload)
+	responsePayload := fmt.Sprintf("Transferred %d %s pictures to %s", i, generation, newOwner)
+	fmt.Println("- end transferPicturesBasedOnGeneration: " + responsePayload)
 	return shim.Success([]byte(responsePayload))
 }
 
