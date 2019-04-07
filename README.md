@@ -52,7 +52,13 @@ $CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/cryp
 $ peer channel update -o orderer.artgalleries.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/LouvreMSPanchors.tx --tls --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/artgalleries.com/orderers/orderer.artgalleries.com/msp/tlscacerts/tlsca.artgalleries.com-cert.pem
 $ CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/guggenheim.artgalleries.com/users/Admin@guggenheim.artgalleries.com/msp CORE_PEER_ADDRESS=peer0.guggenheim.artgalleries.com:7051 CORE_PEER_LOCALMSPID="GuggenheimMSP" CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/guggenheim.artgalleries.com/peers/peer0.guggenheim.artgalleries.com/tls/ca.crt peer channel update -o orderer.artgalleries.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/GuggenheimMSPanchors.tx --tls --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/artgalleries.com/orderers/orderer.artgalleries.com/msp/tlscacerts/tlsca.artgalleries.com-cert.pem
 
+```
 
+Now generate your own chaincode or use one of the fabric-samples:
+
+```sh
+$ peer chaincode install -n artgcc -v 1.0 -p github.com/chaincode/marbles02/go
+$ peer chaincode instantiate -o orderer.artgalleries.com:7050 --tls --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/artgalleries.com/orderers/orderer.artgalleries.com/msp/tlscacerts/tlsca.artgalleries.com-cert.pem -C $CHANNEL_NAME -n artgcc -v 1.0 -c '{"Args":["init"]}' -P "OR ('LouvreMSP.peer','Guggenheim.peer')"
 ```
 
 
