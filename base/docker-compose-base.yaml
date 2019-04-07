@@ -7,7 +7,7 @@ version: '2'
 
 services:
 
-  orderer.universidades.com:
+  orderer.artgalleries.com:
     container_name: orderer.artgalleries.com
     image: hyperledger/fabric-orderer:$IMAGE_TAG
     environment:
